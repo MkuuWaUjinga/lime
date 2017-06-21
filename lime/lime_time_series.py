@@ -9,10 +9,49 @@ import re
 
 import numpy as np
 import scipy as sp
+import pandas as pd
 import sklearn
 
 import explanation
 import lime_base
+
+class TimeSeriesDomainMapper(explanation.DomainMapper):
+    """Maps feature ids to words or word-positions"""
+
+    def __init__(self, time_series):
+        """Initializer.
+
+        Args:
+            time_series: the time series getting explained
+        """
+        self.time_series = time_series
+
+    def map_exp_ids(self, exp):
+        """Maps ids to time series points or features
+
+        Args:
+            exp: list of tuples [(id, weight), (id,weight)]
+
+        Returns:
+            list of tuples (feature_name, weight) or (point_x, weight)
+        """
+        return exp
+
+    def visualize_instance_html(self, exp, label, div_name, exp_object_name):
+        """Adds text with highlighted words to visualization.
+
+        Args:
+             exp: list of tuples [(id, weight), (id,weight)]
+             label: label id (integer)
+             div_name: name of div object to be used for rendering(in js)
+             exp_object_name: name of js explanation object
+        """
+
+        exp = [(x[0], int(x[1])) for x in exp]
+        ret = '''
+            %s.show_raw_text(%s, %d, %s, %s);
+            ''' % (exp_object_name, json.dumps(exp), label, div_name)
+        return ret
 
 
 class LimeTimeSeriesExplainer(object):
@@ -59,7 +98,7 @@ class LimeTimeSeriesExplainer(object):
         self.split_expression = split_expression
 
     def explain_instance(self,
-                         text_instance,
+                         time_series,
                          classifier_fn,
                          labels=(1,),
                          top_labels=None,
@@ -75,7 +114,7 @@ class LimeTimeSeriesExplainer(object):
         each of the classes in an interpretable way (see lime_base.py).
 
         Args:
-            text_instance: raw text string to be explained.
+            time_series: raw time series to be explained.
             classifier_fn: classifier prediction probability function, which
                 takes a list of d strings and outputs a (d, k) numpy array with
                 prediction probabilities, where k is the number of classes.
@@ -95,11 +134,9 @@ class LimeTimeSeriesExplainer(object):
             An Explanation object (see explanation.py) with the corresponding
             explanations.
         """
-        indexed_string = IndexedString(text_instance, bow=self.bow,
-                                       split_expression=self.split_expression)
-        domain_mapper = TextDomainMapper(indexed_string)
+        domain_mapper = TimeSeriesDomainMapper(time_series)
         data, yss, distances = self.__data_labels_distances(
-            indexed_string, classifier_fn, num_samples,
+            time_series, classifier_fn, num_samples,
             distance_metric=distance_metric)
         if self.class_names is None:
             self.class_names = [str(x) for x in range(yss[0].shape[0])]
@@ -121,17 +158,17 @@ class LimeTimeSeriesExplainer(object):
 
     @classmethod
     def __data_labels_distances(cls,
-                                indexed_string,
+                                time_series,
                                 classifier_fn,
                                 num_samples,
                                 distance_metric='cosine'):
         """Generates a neighborhood around a prediction.
 
-        Generates neighborhood data by randomly removing words from
+        Generates neighborhood data by randomly set points to zero from
         the instance, and predicting with the classifier. Uses cosine distance
         to compute distances between original and perturbed instances.
         Args:
-            indexed_string: document (IndexedString) to be explained,
+            time_series: time series to be explained,
             classifier_fn: classifier prediction probability function, which
                 takes a string and outputs prediction probabilities. For
                 ScikitClassifier, this is classifier.predict_proba.
@@ -156,16 +193,25 @@ class LimeTimeSeriesExplainer(object):
             return sklearn.metrics.pairwise.pairwise_distances(
                 x, x[0], metric=distance_metric).ravel() * 100
 
-        doc_size = indexed_string.num_words()
-        sample = np.random.randint(1, doc_size + 1, num_samples - 1)
-        data = np.ones((num_samples, doc_size))
-        data[0] = np.ones(doc_size)
-        features_range = range(doc_size)
-        inverse_data = [indexed_string.raw_string()]
+        series_length = time_series.shape[1]
+        sample = np.random.randint(1, series_length + 1, num_samples - 1)
+        data = np.ones((num_samples, series_length))
+        data[0] = np.ones(series_length)
+        features_range = range(series_length)
+        print(time_series.shape)
+        inverse_data = pd.DataFrame([time_series])
+        print(inverse_data)
         for i, size in enumerate(sample, start=1):
             inactive = np.random.choice(features_range, size, replace=False)
             data[i, inactive] = 0
-            inverse_data.append(indexed_string.inverse_removing(inactive))
+            time_series_neighbor = time_series.copy()
+            print(time_series_neighbor)
+            print(time_series_neighbor[inactive])
+            #print(inactive)
+            #print(data[i])
+            #print(time_series_neighbor)
+            inverse_data.append(time_series_neighbor)
+        print(inverse_data[0, 2])
         labels = classifier_fn(inverse_data)
         distances = distance_fn(sp.sparse.csr_matrix(data))
         return data, labels, distances
