@@ -194,7 +194,7 @@ class LimeTimeSeriesExplainer(object):
                 x, x[0], metric=distance_metric).ravel() * 100
 
         series_length = time_series.shape[1]
-        sample = np.random.randint(1, series_length + 1, num_samples - 1)
+        sample = np.random.randint(1, series_length - 1, num_samples - 1)
         data = np.ones((num_samples, series_length))
         data[0] = np.ones(series_length)
         features_range = range(series_length)
@@ -204,14 +204,12 @@ class LimeTimeSeriesExplainer(object):
         for i, size in enumerate(sample, start=1):
             inactive = np.random.choice(features_range, size, replace=False)
             data[i, inactive] = 0
-            time_series_neighbor = time_series.copy()
-            print(time_series_neighbor)
-            print(time_series_neighbor[inactive])
+            time_series_neighbor = time_series * data[i]
             #print(inactive)
             #print(data[i])
             #print(time_series_neighbor)
-            inverse_data.append(time_series_neighbor)
-        print(inverse_data[0, 2])
+            inverse_data.loc[len(inverse_data)] = time_series_neighbor
+        print(inverse_data.shape)
         labels = classifier_fn(inverse_data)
         distances = distance_fn(sp.sparse.csr_matrix(data))
         return data, labels, distances
