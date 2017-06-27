@@ -11,6 +11,7 @@ import numpy as np
 import scipy as sp
 import pandas as pd
 import sklearn
+import matplotlib.pyplot as plt
 import math
 
 import explanation
@@ -136,7 +137,19 @@ class LimeTimeSeriesExplainer(object):
             An Explanation object (see explanation.py) with the corresponding
             explanations.
         """
+
         domain_mapper = TimeSeriesDomainMapper(time_series)
+
+        # visualize ranges
+        section_width = math.floor(time_series.shape[1]/num_ranges)
+        for section in range(num_ranges): 
+            tmp = time_series.copy().iloc[0]
+            for j in range(1, section_width):
+                tmp[section*section_width+j] = 0
+            print("FEATURE {}:".format(section + 1))
+            tmp.plot(legend=False)    
+            plt.show()
+
         data, yss, distances = self.__data_labels_distances(
             time_series, classifier_fn, num_samples, num_ranges,
             distance_metric=distance_metric)
@@ -160,6 +173,7 @@ class LimeTimeSeriesExplainer(object):
                 model_regressor=model_regressor,
                 feature_selection=self.feature_selection)
         return ret_exp
+
 
     @classmethod
     def __data_labels_distances(cls,
@@ -202,34 +216,26 @@ class LimeTimeSeriesExplainer(object):
         series_length = time_series.shape[1]
         range_width = math.floor(series_length / num_ranges)
         sample = np.random.randint(0, num_ranges - 1, num_samples - 1)
+
         print(sample)
         data = np.ones((num_samples, num_ranges))
         data[0] = np.ones(num_ranges)
-        features_range = range(num_ranges)
-        #print(time_series.shape)
-        # inverse_data = time_series.copy()
         inverse_data = pd.DataFrame(columns=(i for i in range(275)))
         inverse_data.loc[0] = time_series.as_matrix()[0]
-        #print(inverse_data)
+
         for i, size in enumerate(sample, start=1):
-            inactive = np.random.choice(features_range, size, replace=False)
+            inactive = np.random.choice(range(num_ranges), size, replace=False)
             data[i, inactive] = 0
-            time_series_neighbor = time_series.copy().as_matrix()
-            #print(time_series_neighbor)
+            time_series_neighbor = time_series.copy().as_matrix()[0]
+            
             for nr, active in enumerate(data[i]):
                 for j in range(0, range_width):
                     idx = nr * range_width + j
                     if not active:
-                        time_series_neighbor[0][idx] = 0
-            #time_series_neighbor = (time_series * data[i]).as_matrix()
-            #print(data[i])
-            #print(time_series_neighbor)
-            #print(inactive)
-            #print(data[i])
-            # print(time_series_neighbor)
-            #print(time_series_neighbor)
-            inverse_data.loc[i] = time_series_neighbor[0]
-        print(inverse_data)
+                        time_series_neighbor[idx] = 0
+
+            inverse_data.loc[i] = time_series_neighbor
+
         labels = classifier_fn(inverse_data)
         distances = distance_fn(sp.sparse.csr_matrix(data))
         return data, labels, distances
