@@ -215,7 +215,7 @@ class LimeTimeSeriesExplainer(object):
 
         series_length = time_series.shape[1]
         range_width = math.floor(series_length / num_ranges)
-        sample = np.random.randint(0, num_ranges - 1, num_samples - 1)
+        sample = np.random.randint(1, num_ranges - 1, num_samples - 1)
 
         print(sample)
         data = np.ones((num_samples, num_ranges))
