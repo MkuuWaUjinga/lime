@@ -312,7 +312,7 @@ class LimeTextExplainer(object):
 
         doc_size = indexed_string.num_words()
         sample = np.random.randint(1, doc_size + 1, num_samples - 1)
-        data = np.ones((num_samples, doc_size))
+        data = np.ones((num_samples, doc_size))  
         data[0] = np.ones(doc_size)
         features_range = range(doc_size)
         inverse_data = [indexed_string.raw_string()]

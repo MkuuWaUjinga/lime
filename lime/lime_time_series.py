@@ -12,6 +12,8 @@ import scipy as sp
 import pandas as pd
 import sklearn
 import matplotlib.pyplot as plt
+from matplotlib.collections import LineCollection
+from matplotlib.colors import ListedColormap, BoundaryNorm
 import math
 
 import explanation
@@ -140,22 +142,56 @@ class LimeTimeSeriesExplainer(object):
 
         domain_mapper = TimeSeriesDomainMapper(time_series)
 
+        """
+        y = time_series.copy().iloc[0]
+        x = np.linspace(1, 275, 275)
+        print(x)
+        #z = np.cos(0.5 * (x[:-1] + x[1:]))  # first derivative
+
+        # Create a colormap for red, green and blue and a norm to color
+        # f' < -0.5 red, f' > 0.5 blue, and the rest green
+        cmap = ListedColormap(['r', 'g', 'b'])
+        norm = BoundaryNorm([-1, -0.5, 0.5, 1], cmap.N)
+
+        # Create a set of line segments so that we can color them individually
+        # This creates the points as a N x 1 x 2 array so that we can stack points
+        # together easily to get the segments. The segments array for line collection
+        # needs to be numlines x points per line x 2 (x and y)
+        points = np.array([x, y]).T.reshape(-1, 1, 2)
+        segments = np.concatenate([points[:-1], points[1:]], axis=1)
+
+        # Create the line collection object, setting the colormapping parameters.
+        # Have to set the actual values used for colormapping separately.
+        lc = LineCollection(segments, cmap=cmap, norm=norm)
+        #lc.set_array(z)
+        lc.set_linewidth(3)
+
+        fig1 = plt.figure()
+        plt.gca().add_collection(lc)
+        plt.xlim(x.min(), x.max())
+        #plt.ylim(-1.1, 1.1)
+        plt.show()
+        """
+       
         # visualize ranges
         section_width = math.floor(time_series.shape[1]/num_ranges)
-        for section in range(num_ranges): 
+        for section in range(0, num_ranges): 
             tmp = time_series.copy().iloc[0]
             for j in range(1, section_width):
                 tmp[section*section_width+j] = 0
-            print("FEATURE {}:".format(section + 1))
+            print("FEATURE {}:".format(section))
             tmp.plot(legend=False)    
             plt.show()
+        
 
         data, yss, distances = self.__data_labels_distances(
             time_series, classifier_fn, num_samples, num_ranges,
             distance_metric=distance_metric)
+
+        print(data)
         print(yss)
         print(distances)
-        print(data)
+        
         if self.class_names is None:
             self.class_names = [str(x) for x in range(yss[0].shape[0])]
         ret_exp = explanation.Explanation(domain_mapper=domain_mapper,
@@ -172,7 +208,22 @@ class LimeTimeSeriesExplainer(object):
                 data, yss, distances, label, num_features,
                 model_regressor=model_regressor,
                 feature_selection=self.feature_selection)
+
+        #features = ret_exp.as_list()
+        #features.sort(key=lambda x: x[1], reverse=True)
+
+        #self.visualize_range(features[0][0], time_series, num_ranges)
+
         return ret_exp
+
+    def visualize_range(self, number, time_series, num_ranges):
+        tmp = time_series.copy().iloc[0]
+        range_width = math.floor(time_series.shape[1]/num_ranges)
+        for j in range(1, range_width):
+            tmp[number*range_width + j] = 0
+        print("FEATURE {}:".format(number))
+        tmp.plot(legend=False)    
+        plt.show()
 
 
     @classmethod
@@ -215,12 +266,12 @@ class LimeTimeSeriesExplainer(object):
 
         series_length = time_series.shape[1]
         range_width = math.floor(series_length / num_ranges)
-        sample = np.random.randint(1, num_ranges - 1, num_samples - 1)
+        sample = np.random.randint(1, high=num_ranges, size=num_samples - 1)
 
         print(sample)
         data = np.ones((num_samples, num_ranges))
         data[0] = np.ones(num_ranges)
-        inverse_data = pd.DataFrame(columns=(i for i in range(275)))
+        inverse_data = pd.DataFrame(columns=(i for i in range(series_length)))
         inverse_data.loc[0] = time_series.as_matrix()[0]
 
         for i, size in enumerate(sample, start=1):
@@ -232,7 +283,7 @@ class LimeTimeSeriesExplainer(object):
                 for j in range(0, range_width):
                     idx = nr * range_width + j
                     if not active:
-                        time_series_neighbor[idx] = 0
+                        time_series_neighbor[idx] = np.random.uniform(-5.0, 5.0)
 
             inverse_data.loc[i] = time_series_neighbor
 
