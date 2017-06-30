@@ -148,8 +148,10 @@ class LimeTimeSeriesExplainer(object):
         for section in range(0, num_ranges): 
             plt.clf()
             tmp = time_series.copy().iloc[0]
+            min_value = min(tmp.values)
+            max_value = max(tmp.values)
             for j in range(1, section_width):
-                tmp[section*section_width+j] = np.random.uniform(-5.0, 5.0)
+                tmp[section*section_width+j] = np.random.uniform(min_value, max_value)
             print("FEATURE {}:".format(section))
             tmp.plot(legend=False)    
             #plt.savefig('randomized_time_series_secion_{}'.format(section))
@@ -238,14 +240,16 @@ class LimeTimeSeriesExplainer(object):
             inactive = np.random.choice(range(num_ranges), size, replace=False)
             data[i, inactive] = 0
             time_series_neighbor = time_series.copy().as_matrix()[0]
-            
+
             for nr, active in enumerate(data[i]):
                 for j in range(0, range_width):
                     idx = nr * range_width + j
                     if not active:
-                        time_series_neighbor[idx] = np.random.uniform(-5.0,5.0)
+                        time_series_neighbor[idx] = np.random.uniform(min(time_series_neighbor),max(time_series_neighbor))
 
             inverse_data.loc[i] = time_series_neighbor
+            inverse_data.loc[i].plot(legend=False)
+            plt.show()
 
         labels = classifier_fn(inverse_data)
         distances = distance_fn(sp.sparse.csr_matrix(data))
